@@ -1,8 +1,14 @@
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import { useForm, Controller } from "react-hook-form";
+import { observable } from "@legendapp/state";
+import { ObservablePersistLocalStorage } from "@legendapp/state/persist-plugins/local-storage";
+
+// // Enable automatic tracking of observable changes
+// enableReactTracking({
+//   auto: true,
+// });
 
 type Step = {
   title: string;
@@ -10,21 +16,23 @@ type Step = {
   content: JSX.Element;
 };
 
+const state$ = observable({
+  currentStep: 0,
+  firstName: "",
+  gender: "",
+  age: "",
+  goals: [] as string[],
+  quests: [] as string[],
+});
+
+// // Configure persistence
+// persistObservable(state$, {
+//   local: "onboarding-form",
+//   plugin: ObservablePersistLocalStorage,
+// });
+
 const Onboarding = () => {
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    gender: "",
-    age: "",
-    goals: [] as string[],
-    quests: [] as string[],
-  });
+  const currentStep = state$.currentStep.get();
 
   const steps: Step[] = [
     {
@@ -35,10 +43,8 @@ const Onboarding = () => {
           <View className="space-y-2">
             <Text className="text-gray-700 text-lg">First name</Text>
             <TextInput
-              value={formData.firstName}
-              onChangeText={(text) =>
-                setFormData((prev) => ({ ...prev, firstName: text }))
-              }
+              value={state$.firstName.get()}
+              onChangeText={(text) => state$.firstName.set(text)}
               placeholder="John Doe"
               className="w-full p-4 rounded-2xl bg-gray-50 text-lg"
             />
@@ -54,18 +60,16 @@ const Onboarding = () => {
               ].map((option) => (
                 <TouchableOpacity
                   key={option.value}
-                  onPress={() =>
-                    setFormData((prev) => ({ ...prev, gender: option.value }))
-                  }
+                  onPress={() => state$.gender.set(option.value)}
                   className={`flex-1 p-4 rounded-2xl border-2 ${
-                    formData.gender === option.value
+                    state$.gender.get() === option.value
                       ? "border-indigo-500 bg-indigo-50"
                       : "border-gray-200"
                   }`}
                 >
                   <Text
                     className={`text-center ${
-                      formData.gender === option.value
+                      state$.gender.get() === option.value
                         ? "text-indigo-500"
                         : "text-gray-600"
                     }`}
@@ -85,10 +89,8 @@ const Onboarding = () => {
       content: (
         <View className="space-y-4">
           <TextInput
-            value={formData.age}
-            onChangeText={(text) =>
-              setFormData((prev) => ({ ...prev, age: text }))
-            }
+            value={state$.age.get()}
+            onChangeText={(text) => state$.age.set(text)}
             placeholder="Enter your age"
             keyboardType="numeric"
             className="w-full p-4 rounded-2xl bg-gray-50 text-lg"
@@ -110,20 +112,20 @@ const Onboarding = () => {
             <TouchableOpacity
               key={goal.value}
               onPress={() => {
-                const newGoals = formData.goals.includes(goal.value)
-                  ? formData.goals.filter((g) => g !== goal.value)
-                  : [...formData.goals, goal.value];
-                setFormData((prev) => ({ ...prev, goals: newGoals }));
+                const newGoals = state$.goals.get().includes(goal.value)
+                  ? state$.goals.get().filter((g) => g !== goal.value)
+                  : [...state$.goals.get(), goal.value];
+                state$.goals.set(newGoals);
               }}
               className={`p-4 rounded-2xl border-2 ${
-                formData.goals.includes(goal.value)
+                state$.goals.get().includes(goal.value)
                   ? "border-indigo-500 bg-indigo-50"
                   : "border-gray-200"
               }`}
             >
               <Text
                 className={`${
-                  formData.goals.includes(goal.value)
+                  state$.goals.get().includes(goal.value)
                     ? "text-indigo-500"
                     : "text-gray-600"
                 }`}
@@ -154,20 +156,20 @@ const Onboarding = () => {
             <TouchableOpacity
               key={quest.value}
               onPress={() => {
-                const newQuests = formData.quests.includes(quest.value)
-                  ? formData.quests.filter((q) => q !== quest.value)
-                  : [...formData.quests, quest.value];
-                setFormData((prev) => ({ ...prev, quests: newQuests }));
+                const newQuests = state$.quests.get().includes(quest.value)
+                  ? state$.quests.get().filter((q) => q !== quest.value)
+                  : [...state$.quests.get(), quest.value];
+                state$.quests.set(newQuests);
               }}
               className={`p-4 rounded-2xl border-2 ${
-                formData.quests.includes(quest.value)
+                state$.quests.get().includes(quest.value)
                   ? "border-indigo-500 bg-indigo-50"
                   : "border-gray-200"
               }`}
             >
               <Text
                 className={`${
-                  formData.quests.includes(quest.value)
+                  state$.quests.get().includes(quest.value)
                     ? "text-indigo-500"
                     : "text-gray-600"
                 }`}
@@ -186,13 +188,13 @@ const Onboarding = () => {
   const isCurrentStepValid = () => {
     switch (currentStep) {
       case 0:
-        return formData.firstName && formData.gender;
+        return state$.firstName.get() && state$.gender.get();
       case 1:
-        return formData.age;
+        return state$.age.get();
       case 2:
-        return formData.goals.length > 0;
+        return state$.goals.get().length > 0;
       case 3:
-        return formData.quests.length > 0;
+        return state$.quests.get().length > 0;
       default:
         return false;
     }
@@ -200,16 +202,33 @@ const Onboarding = () => {
 
   const handleContinue = () => {
     if (currentStep < steps.length - 1) {
-      setCurrentStep((prev) => prev + 1);
+      state$.currentStep.set(currentStep + 1);
     } else {
-      console.log("navigate to dashboard:", formData);
+      console.log("navigate to dashboard:", {
+        firstName: state$.firstName.get(),
+        gender: state$.gender.get(),
+        age: state$.age.get(),
+        goals: state$.goals.get(),
+        quests: state$.quests.get(),
+      });
+      router.push("/dashboard");
+
+      // Reset the form after successful completion
+      state$.set({
+        currentStep: 0,
+        firstName: "",
+        gender: "",
+        age: "",
+        goals: [],
+        quests: [],
+      });
     }
   };
   const handlePrevious = () => {
-    if (currentStep == 0) {
+    if (currentStep === 0) {
       router.back();
     } else {
-      setCurrentStep((prev) => prev - 1);
+      state$.currentStep.set(currentStep - 1);
     }
   };
 
