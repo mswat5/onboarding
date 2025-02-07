@@ -1,40 +1,54 @@
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import { observable } from "@legendapp/state";
-import { ObservablePersistLocalStorage } from "@legendapp/state/persist-plugins/local-storage";
-
-// // Enable automatic tracking of observable changes
-// enableReactTracking({
-//   auto: true,
-// });
-
-type Step = {
-  title: string;
-  subtitle: string;
-  content: JSX.Element;
-};
-
-const state$ = observable({
-  currentStep: 0,
-  firstName: "",
-  gender: "",
-  age: "",
-  goals: [] as string[],
-  quests: [] as string[],
-});
-
-// // Configure persistence
-// persistObservable(state$, {
-//   local: "onboarding-form",
-//   plugin: ObservablePersistLocalStorage,
-// });
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Onboarding = () => {
-  const currentStep = state$.currentStep.get();
+  const [currentStep, setCurrentStep] = useState(0);
+  const [firstName, setFirstName] = useState("");
+  const [gender, setGender] = useState("");
+  const [age, setAge] = useState("");
+  const [goals, setGoals] = useState<string[]>([]);
+  const [quests, setQuests] = useState<string[]>([]);
 
-  const steps: Step[] = [
+  // Load saved data when component mounts
+  useEffect(() => {
+    const loadSavedData = async () => {
+      try {
+        const savedData = await AsyncStorage.getItem("onboarding-form");
+        if (savedData) {
+          const { firstName, gender, age, goals, quests } =
+            JSON.parse(savedData);
+          setFirstName(firstName || "");
+          setGender(gender || "");
+          setAge(age || "");
+          setGoals(goals || []);
+          setQuests(quests || []);
+        }
+      } catch (error) {
+        console.log("Error loading data:", error);
+      }
+    };
+    loadSavedData();
+  }, []);
+
+  // Save data when it changes
+  useEffect(() => {
+    const saveData = async () => {
+      try {
+        await AsyncStorage.setItem(
+          "onboarding-form",
+          JSON.stringify({ firstName, gender, age, goals, quests })
+        );
+      } catch (error) {
+        console.log("Error saving data:", error);
+      }
+    };
+    saveData();
+  }, [firstName, gender, age, goals, quests]);
+
+  const steps = [
     {
       title: "Let's get to know you better !",
       subtitle: "Share your name and gender to personalize your experience",
@@ -43,8 +57,8 @@ const Onboarding = () => {
           <View className="space-y-2">
             <Text className="text-gray-700 text-lg">First name</Text>
             <TextInput
-              value={state$.firstName.get()}
-              onChangeText={(text) => state$.firstName.set(text)}
+              value={firstName}
+              onChangeText={setFirstName}
               placeholder="John Doe"
               className="w-full p-4 rounded-2xl bg-gray-50 text-lg"
             />
@@ -60,16 +74,16 @@ const Onboarding = () => {
               ].map((option) => (
                 <TouchableOpacity
                   key={option.value}
-                  onPress={() => state$.gender.set(option.value)}
+                  onPress={() => setGender(option.value)}
                   className={`flex-1 p-4 rounded-2xl border-2 ${
-                    state$.gender.get() === option.value
+                    gender === option.value
                       ? "border-indigo-500 bg-indigo-50"
                       : "border-gray-200"
                   }`}
                 >
                   <Text
                     className={`text-center ${
-                      state$.gender.get() === option.value
+                      gender === option.value
                         ? "text-indigo-500"
                         : "text-gray-600"
                     }`}
@@ -89,8 +103,8 @@ const Onboarding = () => {
       content: (
         <View className="space-y-4">
           <TextInput
-            value={state$.age.get()}
-            onChangeText={(text) => state$.age.set(text)}
+            value={age}
+            onChangeText={setAge}
             placeholder="Enter your age"
             keyboardType="numeric"
             className="w-full p-4 rounded-2xl bg-gray-50 text-lg"
@@ -112,20 +126,20 @@ const Onboarding = () => {
             <TouchableOpacity
               key={goal.value}
               onPress={() => {
-                const newGoals = state$.goals.get().includes(goal.value)
-                  ? state$.goals.get().filter((g) => g !== goal.value)
-                  : [...state$.goals.get(), goal.value];
-                state$.goals.set(newGoals);
+                const newGoals = goals.includes(goal.value)
+                  ? goals.filter((g) => g !== goal.value)
+                  : [...goals, goal.value];
+                setGoals(newGoals);
               }}
               className={`p-4 rounded-2xl border-2 ${
-                state$.goals.get().includes(goal.value)
+                goals.includes(goal.value)
                   ? "border-indigo-500 bg-indigo-50"
                   : "border-gray-200"
               }`}
             >
               <Text
                 className={`${
-                  state$.goals.get().includes(goal.value)
+                  goals.includes(goal.value)
                     ? "text-indigo-500"
                     : "text-gray-600"
                 }`}
@@ -156,20 +170,20 @@ const Onboarding = () => {
             <TouchableOpacity
               key={quest.value}
               onPress={() => {
-                const newQuests = state$.quests.get().includes(quest.value)
-                  ? state$.quests.get().filter((q) => q !== quest.value)
-                  : [...state$.quests.get(), quest.value];
-                state$.quests.set(newQuests);
+                const newQuests = quests.includes(quest.value)
+                  ? quests.filter((q) => q !== quest.value)
+                  : [...quests, quest.value];
+                setQuests(newQuests);
               }}
               className={`p-4 rounded-2xl border-2 ${
-                state$.quests.get().includes(quest.value)
+                quests.includes(quest.value)
                   ? "border-indigo-500 bg-indigo-50"
                   : "border-gray-200"
               }`}
             >
               <Text
                 className={`${
-                  state$.quests.get().includes(quest.value)
+                  quests.includes(quest.value)
                     ? "text-indigo-500"
                     : "text-gray-600"
                 }`}
@@ -188,47 +202,42 @@ const Onboarding = () => {
   const isCurrentStepValid = () => {
     switch (currentStep) {
       case 0:
-        return state$.firstName.get() && state$.gender.get();
+        return firstName && gender;
       case 1:
-        return state$.age.get();
+        return age;
       case 2:
-        return state$.goals.get().length > 0;
+        return goals.length > 0;
       case 3:
-        return state$.quests.get().length > 0;
+        return quests.length > 0;
       default:
         return false;
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (currentStep < steps.length - 1) {
-      state$.currentStep.set(currentStep + 1);
+      setCurrentStep(currentStep + 1);
     } else {
       console.log("navigate to dashboard:", {
-        firstName: state$.firstName.get(),
-        gender: state$.gender.get(),
-        age: state$.age.get(),
-        goals: state$.goals.get(),
-        quests: state$.quests.get(),
+        firstName,
+        gender,
+        age,
+        goals,
+        quests,
       });
-      router.push("/dashboard");
 
-      // Reset the form after successful completion
-      state$.set({
-        currentStep: 0,
-        firstName: "",
-        gender: "",
-        age: "",
-        goals: [],
-        quests: [],
-      });
+      // Clear the form data from AsyncStorage
+      await AsyncStorage.removeItem("onboarding-form");
+
+      router.push("/dashboard");
     }
   };
+
   const handlePrevious = () => {
     if (currentStep === 0) {
       router.back();
     } else {
-      state$.currentStep.set(currentStep - 1);
+      setCurrentStep(currentStep - 1);
     }
   };
 
